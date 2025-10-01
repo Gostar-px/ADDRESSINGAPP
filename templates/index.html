@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP Address Lookup</title>
+    <title>Tech'A Lang Lookup Tool</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -283,7 +283,7 @@
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-search-location"></i> IP Address Lookup Tool</h1>
+            <h1><i class="fas fa-search-location"></i> Tech'A Lang Lookup Tool</h1>
             <p class="tagline">Discover detailed information about any IP address including location, ISP, and more</p>
         </header>
 
@@ -395,7 +395,7 @@
         {% if info.latitude and info.longitude %}
         // Initialize map
         var map = L.map('map').setView([{{ info.latitude }}, {{ info.longitude }}], 10);
-        
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
