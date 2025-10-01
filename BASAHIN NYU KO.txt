@@ -1,0 +1,9 @@
+
+
+1. Puntahan ang View tab sa kaliwang ika-tuktok na bahagi na vscode
+2. Piliin at buksan ang Terminal
+3. Paniguraduhing cmd ang gamit at hindi powershell
+4. i-type python -m venv venv
+5. sunod ay i-type pip install -r requirements.txt
+6. pagtapos mag-antay at tsaka i-type python app.py
+7. May link na http://127.0.0.1:5000 puntahan ito
