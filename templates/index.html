@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IP Address Information</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f9f9f9; text-align: center; padding: 40px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); display: inline-block; }
+        h1 { color: #333; }
+        p { margin: 8px 0; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Public IP Information</h1>
+        {% if info.error %}
+            <p class="error">{{ info.error }}</p>
+        {% else %}
+            <p><strong>IP Address:</strong> {{ info.ip }}</p>
+            <p><strong>Version:</strong> {{ info.version }}</p>
+            <p><strong>ASN:</strong> {{ info.asn }}</p>
+            <p><strong>ISP:</strong> {{ info.org }}</p>
+            <p><strong>Country:</strong> {{ info.country_name }}</p>
+            <p><strong>Region:</strong> {{ info.region }}</p>
+            <p><strong>City:</strong> {{ info.city }}</p>
+            <p><strong>Coordinates:</strong> {{ info.latitude }}, {{ info.longitude }}</p>
+            <p><strong>Timezone:</strong> {{ info.timezone }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>
