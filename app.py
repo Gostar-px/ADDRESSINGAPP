@@ -6,11 +6,16 @@ app = Flask(__name__)
 
 # Load API key from .env file
 load_dotenv()
-API_KEY = os.getenv("IPAPI_KEY")
+API_KEY = os.getenv("IPGEO_KEY")  # <-- rename to match your new provider (optional)
 
 def get_ip_info(ip=None):
     try:
-        url = f"https://ipapi.co/{ip}/json/?access_key={API_KEY}" if ip else f"https://ipapi.co/json/?access_key={API_KEY}"
+        base_url = "https://api.ipgeolocation.io/ipgeo"
+        if ip:
+            url = f"{base_url}?apiKey={API_KEY}&ip={ip}"
+        else:
+            url = f"{base_url}?apiKey={API_KEY}"
+
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
         return resp.json()
