@@ -650,6 +650,26 @@
                     <i class="fas fa-search"></i> Lookup IP Address
                 </button>
             </form>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #cbd5e1;">
+
+<h3 style="color: var(--dark-blue); margin-bottom:10px;">
+    <i class="fas fa-layer-group"></i> Batch IP Lookup
+</h3>
+
+<div class="form-group">
+    <label for="batch_ips">Enter multiple IP addresses</label>
+    <textarea id="batch_ips" placeholder="One IP per line or comma-separated..."
+              style="width:100%; height:140px; padding:12px; border-radius:8px; border:2px solid #e2e8f0;"></textarea>
+</div>
+
+<button type="button" id="batchLookupBtn">
+    <i class="fas fa-layer-group"></i> Lookup Multiple IPs
+</button>
+
+<div id="batch-results" class="hidden" style="margin-top:20px;"></div>
+
+
         </div>
 
         <div class="loading" id="loading">
@@ -873,5 +893,68 @@
                 .openPopup();
         }
     </script>
+
+<script>
+// BATCH LOOKUP FEATURE
+document.getElementById("batchLookupBtn").addEventListener("click", async function () {
+
+    const rawInput = document.getElementById("batch_ips").value.trim();
+    const batchResults = document.getElementById("batch-results");
+
+    if (rawInput === "") {
+        batchResults.innerHTML = `<p style="color:red;">Please enter at least one IP address.</p>`;
+        batchResults.classList.remove("hidden");
+        return;
+    }
+
+    // Split by new lines or commas
+    const ips = rawInput
+        .split(/[\n,]+/)
+        .map(ip => ip.trim())
+        .filter(ip => ip.length > 0);
+
+    batchResults.innerHTML = "<p>Looking up multiple IP addresses...</p>";
+    batchResults.classList.remove("hidden");
+
+    // Call the backend API for each IP
+    const results = [];
+
+    for (let ip of ips) {
+        try {
+            const res = await fetch(`/api/lookup?ip=${encodeURIComponent(ip)}`);
+            const data = await res.json();
+            results.push({ ip, data });
+        } catch (err) {
+            results.push({ ip, data: { error: "Lookup failed" } });
+        }
+    }
+
+    // Display results
+    let html = `<h3>Batch Results</h3>`;
+    html += `<ul style="list-style:none; padding:0;">`;
+
+    for (let item of results) {
+        html += `
+            <li style="background:white; padding:15px; margin:10px 0; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+                <strong>IP:</strong> ${item.ip}<br>
+                ${item.data.error 
+                    ? `<span style="color:red;">${item.data.error}</span>`
+                    : `
+                        <strong>Country:</strong> ${item.data.country}<br>
+                        <strong>Region:</strong> ${item.data.region}<br>
+                        <strong>City:</strong> ${item.data.city}<br>
+                        <strong>ISP:</strong> ${item.data.isp}<br>
+                    `
+                }
+            </li>
+        `;
+    }
+
+    html += `</ul>`;
+    batchResults.innerHTML = html;
+});
+</script>
+
+
 </body>
 </html>

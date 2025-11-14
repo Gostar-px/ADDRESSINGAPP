@@ -89,6 +89,9 @@ class IPAddressApp:
         """Check information for a specific IP address"""
         print(f"\n🔍 Checking information for IP: {ip_address}")
         print("=" * 50)
+
+
+    
         
         try:
             # Using ip-api.com for specific IP lookup
