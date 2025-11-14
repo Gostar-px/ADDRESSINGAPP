@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request
-import requests, os
+from flask import Flask, render_template, request, jsonify
+import requests, os, csv
+from io import StringIO
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -34,6 +35,15 @@ def batch_lookup(ip_list):
             })
     return results
 
+# ✅ NEW API ENDPOINT FOR BATCH LOOKUP
+@app.route("/api/lookup", methods=["GET"])
+def api_lookup():
+    ip = request.args.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP address is required"}), 400
+    
+    result = get_ip_info(ip)
+    return jsonify(result)
 
 # 🟦 MAIN ROUTE UPDATED — handles single + batch lookup
 @app.route("/", methods=["GET", "POST"])
@@ -43,7 +53,6 @@ def home():
     batch_results = None
 
     if request.method == "POST":
-        
         mode = request.form.get("mode")
 
         # ---------------- SINGLE LOOKUP ----------------
@@ -54,7 +63,7 @@ def home():
         # ---------------- BATCH LOOKUP (NEW) ----------------
         elif mode == "batch":
             text_area_ips = request.form.get("batch_ips", "")
-            ip_list = text_area_ips.split("\n")
+            ip_list = [ip.strip() for ip in text_area_ips.replace(',', '\n').split('\n') if ip.strip()]
             batch_results = batch_lookup(ip_list)
 
     return render_template(
@@ -64,6 +73,45 @@ def home():
         batch_results=batch_results
     )
 
+# ✅ CSV DOWNLOAD ENDPOINT
+@app.route("/download-csv", methods=["POST"])
+def download_csv():
+    try:
+        data = request.get_json()
+        if not data or "results" not in data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Create CSV in memory
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(["IP Address", "Country", "Region", "City", "ISP", "Organization", "Latitude", "Longitude"])
+        
+        # Write data
+        for result in data["results"]:
+            ip = result["ip"]
+            data = result["data"]
+            
+            writer.writerow([
+                ip,
+                data.get("country_name", "") or data.get("country", ""),
+                data.get("state_prov", "") or data.get("region", ""),
+                data.get("city", ""),
+                data.get("isp", ""),
+                data.get("organization", ""),
+                data.get("latitude", ""),
+                data.get("longitude", "")
+            ])
+        
+        # Return CSV file
+        output.seek(0)
+        return output.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': 'attachment; filename="ip_lookup_results.csv"'
+        }
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

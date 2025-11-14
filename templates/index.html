@@ -604,6 +604,80 @@
         .hidden {
             display: none;
         }
+                /* Batch Results Styles */
+        .batch-results {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .batch-result-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .batch-result-item.error {
+            border-left-color: var(--error-color);
+            background: #fef2f2;
+        }
+
+        .batch-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-family: inherit;
+            resize: vertical;
+            transition: var(--transition);
+        }
+
+        textarea:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(44, 123, 229, 0.2);
+        }
+
+        .mode-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .mode-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: var(--transition);
+            font-weight: 600;
+        }
+
+        .mode-tab.active {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -636,115 +710,152 @@
         </header>
 
         <div class="search-container">
-            <form method="POST" action="/" class="search-form" id="search-form">
-                <div class="form-group">
-                    <label for="ip_address">Enter IP Address</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-search"></i>
-                        <input type="text" name="ip_address" id="ip_address" 
-                               value="8.8.8.8" 
-                               placeholder="e.g., 8.8.8.8 or leave blank for your own IP">
+            <!-- Mode Tabs -->
+            <div class="mode-tabs">
+                <div class="mode-tab active" data-tab="single">Single Lookup</div>
+                <div class="mode-tab" data-tab="batch">Batch Lookup</div>
+            </div>
+
+            <!-- Single Lookup Tab -->
+            <div class="tab-content active" id="single-tab">
+                <form method="POST" action="/" class="search-form">
+                    <input type="hidden" name="mode" value="single">
+                    <div class="form-group">
+                        <label for="ip_address">Enter IP Address</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-search"></i>
+                            <input type="text" name="ip_address" id="ip_address" 
+                                   value="{{ searched_ip }}" 
+                                   placeholder="e.g., 8.8.8.8 or leave blank for your own IP">
+                        </div>
+                    </div>
+                    <button type="submit">
+                        <i class="fas fa-search"></i> Lookup IP Address
+                    </button>
+                </form>
+            </div>
+
+            <!-- Batch Lookup Tab -->
+            <div class="tab-content" id="batch-tab">
+                <form method="POST" action="/" class="search-form" id="batch-form">
+                    <input type="hidden" name="mode" value="batch">
+                    <div class="form-group">
+                        <label for="batch_ips">Enter multiple IP addresses</label>
+                        <textarea name="batch_ips" id="batch_ips" placeholder="One IP per line or comma-separated..."></textarea>
+                    </div>
+                    <button type="submit">
+                        <i class="fas fa-layer-group"></i> Lookup Multiple IPs
+                    </button>
+                </form>
+
+                <!-- Batch Results Section -->
+                {% if batch_results %}
+                <div class="batch-results" style="margin-top: 20px;">
+                    <h3><i class="fas fa-list"></i> Batch Results ({{ batch_results|length }} IPs)</h3>
+                    
+                    {% for result in batch_results %}
+                    <div class="batch-result-item {% if result.result.error %}error{% endif %}">
+                        <strong>IP:</strong> {{ result.ip }}<br>
+                        {% if result.result.error %}
+                            <span style="color: var(--error-color);"><strong>Error:</strong> {{ result.result.error }}</span>
+                        {% else %}
+                            <strong>Country:</strong> {{ result.result.country_name }}<br>
+                            <strong>Region:</strong> {{ result.result.state_prov }}<br>
+                            <strong>City:</strong> {{ result.result.city }}<br>
+                            <strong>ISP:</strong> {{ result.result.isp }}<br>
+                            <strong>Coordinates:</strong> {{ result.result.latitude }}, {{ result.result.longitude }}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <!-- CSV Download Button -->
+                    <div class="batch-actions">
+                        <button type="button" id="downloadCSVBtn" onclick="downloadBatchCSV()" style="background: var(--success-color);">
+                            <i class="fas fa-file-csv"></i> Download CSV
+                        </button>
+                        <button type="button" onclick="clearBatchResults()" style="background: var(--error-color);">
+                            <i class="fas fa-trash"></i> Clear Results
+                        </button>
                     </div>
                 </div>
-                <button type="submit">
-                    <i class="fas fa-search"></i> Lookup IP Address
-                </button>
-            </form>
-
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #cbd5e1;">
-
-<h3 style="color: var(--dark-blue); margin-bottom:10px;">
-    <i class="fas fa-layer-group"></i> Batch IP Lookup
-</h3>
-
-<div class="form-group">
-    <label for="batch_ips">Enter multiple IP addresses</label>
-    <textarea id="batch_ips" placeholder="One IP per line or comma-separated..."
-              style="width:100%; height:140px; padding:12px; border-radius:8px; border:2px solid #e2e8f0;"></textarea>
-</div>
-
-<button type="button" id="batchLookupBtn">
-    <i class="fas fa-layer-group"></i> Lookup Multiple IPs
-</button>
-
-<div id="batch-results" class="hidden" style="margin-top:20px;"></div>
-
-<button type="button" id="downloadCSVBtn" style="margin-top:10px; display:none;">
-    <i class="fas fa-file-csv"></i> Download CSV
-</button>
-
-
-
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="loading-spinner"></div>
-            <p>Looking up IP address information...</p>
-        </div>
-
-        <div class="success-message" id="success-message">
-            <i class="fas fa-check-circle"></i>
-            <div>
-                <strong>Success!</strong> IP information retrieved successfully.
+                {% endif %}
             </div>
         </div>
 
-        <div class="info-section" id="info-section">
-            <div class="info-card">
-                <h2>
-                    <i class="fas fa-info-circle"></i> 
-                    IP Details
-                    <span class="ip-badge">
-                        Searched IP
-                    </span>
-                </h2>
-                <ul class="info-list">
-                    <li>
-                        <span class="info-label">IP Address:</span>
-                        <span class="info-value" id="ip-value">8.8.8.8</span>
-                    </li>
-                    <li>
-                        <span class="info-label">City:</span>
-                        <span class="info-value" id="city-value">Mountain View</span>
-                    </li>
-                    <li>
-                        <span class="info-label">Region:</span>
-                        <span class="info-value" id="region-value">California</span>
-                    </li>
-                    <li>
-                        <span class="info-label">Country:</span>
-                        <span class="info-value" id="country-value">United States</span>
-                    </li>
-                </ul>
+        {% if info %}
+            {% if info.error %}
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    <strong>Error:</strong> {{ info.error }}
+                </div>
+            </div>
+            {% else %}
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>Success!</strong> IP information retrieved successfully.
+                </div>
             </div>
 
-            <div class="info-card">
-                <h2><i class="fas fa-network-wired"></i> Network Information</h2>
-                <ul class="info-list">
-                    <li>
-                        <span class="info-label">ISP:</span>
-                        <span class="info-value" id="isp-value">Google LLC</span>
-                    </li>
-                    <li>
-                        <span class="info-label">Organization:</span>
-                        <span class="info-value" id="org-value">Google Public DNS</span>
-                    </li>
-                    <li>
-                        <span class="info-label">Latitude:</span>
-                        <span class="info-value" id="lat-value">37.4056</span>
-                    </li>
-                    <li>
-                        <span class="info-label">Longitude:</span>
-                        <span class="info-value" id="lon-value">-122.0775</span>
-                    </li>
-                </ul>
-            </div>
-        </div>
+            <div class="info-section">
+                <div class="info-card">
+                    <h2>
+                        <i class="fas fa-info-circle"></i> 
+                        IP Details
+                        <span class="ip-badge">
+                            {% if not searched_ip %}Your IP{% else %}Searched IP{% endif %}
+                        </span>
+                    </h2>
+                    <ul class="info-list">
+                        <li>
+                            <span class="info-label">IP Address:</span>
+                            <span class="info-value">{{ info.ip }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">City:</span>
+                            <span class="info-value">{{ info.city }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">Region:</span>
+                            <span class="info-value">{{ info.state_prov }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">Country:</span>
+                            <span class="info-value">{{ info.country_name }}</span>
+                        </li>
+                    </ul>
+                </div>
 
-        <div class="map-container">
-            <h2><i class="fas fa-map-marked-alt"></i> Location Map</h2>
-            <div id="map"></div>
-        </div>
+                <div class="info-card">
+                    <h2><i class="fas fa-network-wired"></i> Network Information</h2>
+                    <ul class="info-list">
+                        <li>
+                            <span class="info-label">ISP:</span>
+                            <span class="info-value">{{ info.isp }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">Organization:</span>
+                            <span class="info-value">{{ info.organization }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">Latitude:</span>
+                            <span class="info-value">{{ info.latitude }}</span>
+                        </li>
+                        <li>
+                            <span class="info-label">Longitude:</span>
+                            <span class="info-value">{{ info.longitude }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <h2><i class="fas fa-map-marked-alt"></i> Location Map</h2>
+                <div id="map"></div>
+            </div>
+            {% endif %}
+        {% endif %}
 
         <footer>
             <p>IP Address Lookup Tool &copy; 2023 | Powered by OpenStreetMap</p>
@@ -753,14 +864,28 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Initialize map with sample data
-        var map = L.map('map').setView([37.4056, -122.0775], 10);
+        // Tab functionality
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+
+        // Initialize map only if we have location data
+        {% if info and not info.error %}
+        var map = L.map('map').setView([{{ info.latitude }}, {{ info.longitude }}], 10);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Custom icon
         var customIcon = L.divIcon({
             html: '<i class="fas fa-map-marker-alt" style="color: #2c7be5; font-size: 24px;"></i>',
             iconSize: [24, 24],
@@ -768,227 +893,77 @@
             className: 'custom-marker'
         });
 
-        L.marker([37.4056, -122.0775], {icon: customIcon}).addTo(map)
+        L.marker([{{ info.latitude }}, {{ info.longitude }}], {icon: customIcon}).addTo(map)
             .bindPopup(`
                 <div style="text-align: center;">
-                    <h3 style="margin: 0 0 8px 0;">Mountain View, United States</h3>
-                    <p style="margin: 0;"><strong>IP:</strong> 8.8.8.8</p>
-                    <p style="margin: 0;"><strong>ISP:</strong> Google LLC</p>
+                    <h3 style="margin: 0 0 8px 0;">{{ info.city }}, {{ info.country_name }}</h3>
+                    <p style="margin: 0;"><strong>IP:</strong> {{ info.ip }}</p>
+                    <p style="margin: 0;"><strong>ISP:</strong> {{ info.isp }}</p>
                 </div>
             `)
             .openPopup();
+        {% else %}
+        // Default map if no data
+        var map = L.map('map').setView([37.7749, -122.4194], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        {% endif %}
 
-        // Show loading indicator when form is submitted
-        document.getElementById('search-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Show loading indicator
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('success-message').style.display = 'none';
-            document.getElementById('info-section').style.display = 'none';
-            
-            // Get the IP address from the input
-            const ipAddress = document.getElementById('ip_address').value || '8.8.8.8';
-            
-            // Simulate API call with a timeout
-            setTimeout(function() {
-                // Hide loading indicator
-                document.getElementById('loading').style.display = 'none';
-                
-                // Show success message
-                document.getElementById('success-message').style.display = 'flex';
-                
-                // Update the displayed information
-                updateIPInfo(ipAddress);
-                
-                // Show the info section
-                document.getElementById('info-section').style.display = 'grid';
-                
-                // Update the map
-                updateMap(ipAddress);
-            }, 1500);
-        });
-        
-        // Function to update IP information
-        function updateIPInfo(ip) {
-            // In a real application, you would fetch this data from an API
-            // For this demo, we'll use sample data based on the IP
-            let sampleData = {
-                '8.8.8.8': {
-                    ip: '8.8.8.8',
-                    city: 'Mountain View',
-                    region: 'California',
-                    country: 'United States',
-                    isp: 'Google LLC',
-                    org: 'Google Public DNS',
-                    lat: 37.4056,
-                    lon: -122.0775
+        // CSV Download Function
+        function downloadBatchCSV() {
+            const results = [
+                {% if batch_results %}
+                    {% for result in batch_results %}
+                    {
+                        ip: "{{ result.ip }}",
+                        data: {
+                            country_name: "{{ result.result.country_name|default('') }}",
+                            state_prov: "{{ result.result.state_prov|default('') }}",
+                            city: "{{ result.result.city|default('') }}",
+                            isp: "{{ result.result.isp|default('') }}",
+                            organization: "{{ result.result.organization|default('') }}",
+                            latitude: "{{ result.result.latitude|default('') }}",
+                            longitude: "{{ result.result.longitude|default('') }}"
+                        }
+                    },
+                    {% endfor %}
+                {% endif %}
+            ];
+
+            fetch('/download-csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                '1.1.1.1': {
-                    ip: '1.1.1.1',
-                    city: 'Los Angeles',
-                    region: 'California',
-                    country: 'United States',
-                    isp: 'Cloudflare',
-                    org: 'APNIC and Cloudflare DNS',
-                    lat: 34.0522,
-                    lon: -118.2437
-                },
-                '': {
-                    // Default to user's IP (simulated)
-                    ip: '192.168.1.1',
-                    city: 'Your City',
-                    region: 'Your Region',
-                    country: 'Your Country',
-                    isp: 'Your ISP',
-                    org: 'Your Organization',
-                    lat: 37.7749,
-                    lon: -122.4194
-                }
-            };
-            
-            const data = sampleData[ip] || sampleData['8.8.8.8'];
-            
-            // Update the DOM with the new data
-            document.getElementById('ip-value').textContent = data.ip;
-            document.getElementById('city-value').textContent = data.city;
-            document.getElementById('region-value').textContent = data.region;
-            document.getElementById('country-value').textContent = data.country;
-            document.getElementById('isp-value').textContent = data.isp;
-            document.getElementById('org-value').textContent = data.org;
-            document.getElementById('lat-value').textContent = data.lat;
-            document.getElementById('lon-value').textContent = data.lon;
-            
-            // Update the IP badge
-            const ipBadge = document.querySelector('.ip-badge');
-            ipBadge.textContent = ip ? 'Searched IP' : 'Your IP';
-        }
-        
-        // Function to update the map
-        function updateMap(ip) {
-            // In a real application, you would get the coordinates from the API response
-            // For this demo, we'll use sample coordinates based on the IP
-            let sampleCoords = {
-                '8.8.8.8': [37.4056, -122.0775],
-                '1.1.1.1': [34.0522, -118.2437],
-                '': [37.7749, -122.4194] // Default to San Francisco
-            };
-            
-            const coords = sampleCoords[ip] || sampleCoords['8.8.8.8'];
-            
-            // Update the map view
-            map.setView(coords, 10);
-            
-            // Clear existing markers
-            map.eachLayer(function(layer) {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
+                body: JSON.stringify({ results: results })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'ip_lookup_results.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                console.error('Error downloading CSV:', error);
+                alert('Error downloading CSV file');
             });
-            
-            // Add new marker
-            L.marker(coords, {icon: customIcon}).addTo(map)
-                .bindPopup(`
-                    <div style="text-align: center;">
-                        <h3 style="margin: 0 0 8px 0;">${document.getElementById('city-value').textContent}, ${document.getElementById('country-value').textContent}</h3>
-                        <p style="margin: 0;"><strong>IP:</strong> ${document.getElementById('ip-value').textContent}</p>
-                        <p style="margin: 0;"><strong>ISP:</strong> ${document.getElementById('isp-value').textContent}</p>
-                    </div>
-                `)
-                .openPopup();
+        
+        }
+        function clearBatchResults() {
+            if (confirm('Are you sure you want to clear the batch results?')) {
+                window.location.href = '/';
+            }
         }
     </script>
-
-<script>
-// BATCH LOOKUP FEATURE
-document.getElementById("batchLookupBtn").addEventListener("click", async function () {
-
-    const rawInput = document.getElementById("batch_ips").value.trim();
-    const batchResults = document.getElementById("batch-results");
-
-    if (rawInput === "") {
-        batchResults.innerHTML = `<p style="color:red;">Please enter at least one IP address.</p>`;
-        batchResults.classList.remove("hidden");
-        return;
-    }
-
-    // Split by new lines or commas
-    const ips = rawInput
-        .split(/[\n,]+/)
-        .map(ip => ip.trim())
-        .filter(ip => ip.length > 0);
-
-    batchResults.innerHTML = "<p>Looking up multiple IP addresses...</p>";
-    batchResults.classList.remove("hidden");
-
-    // Call the backend API for each IP
-    const results = [];
-
-    for (let ip of ips) {
-        try {
-            const res = await fetch(`/api/lookup?ip=${encodeURIComponent(ip)}`);
-            const data = await res.json();
-            results.push({ ip, data });
-        } catch (err) {
-            results.push({ ip, data: { error: "Lookup failed" } });
-        }
-    }
-
-    // Display results
-    let html = `<h3>Batch Results</h3>`;
-    html += `<ul style="list-style:none; padding:0;">`;
-
-    for (let item of results) {
-        html += `
-            <li style="background:white; padding:15px; margin:10px 0; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-                <strong>IP:</strong> ${item.ip}<br>
-                ${item.data.error 
-                    ? `<span style="color:red;">${item.data.error}</span>`
-                    : `
-                        <strong>Country:</strong> ${item.data.country}<br>
-                        <strong>Region:</strong> ${item.data.region}<br>
-                        <strong>City:</strong> ${item.data.city}<br>
-                        <strong>ISP:</strong> ${item.data.isp}<br>
-                    `
-                }
-            </li>
-        `;
-    }
-
-    html += `</ul>`;
-    batchResults.innerHTML = html;
-
-    // --- ADD CSV DOWNLOAD FEATURE BELOW ---
-const downloadBtn = document.getElementById("downloadCSVBtn");
-downloadBtn.style.display = "inline-block"; // show the button
-
-downloadBtn.onclick = function () {
-    if (results.length === 0) return;
-
-    let csvContent = "IP,Country,Region,City,ISP\n";
-
-    results.forEach(item => {
-        const row = [
-            item.ip,
-            item.data.country || "",
-            item.data.region || "",
-            item.data.city || "",
-            item.data.isp || ""
-        ];
-        csvContent += row.join(",") + "\n";
-    });
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "batch_lookup_results.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-
-}});
-</script>
-
-
 </body>
 </html>
