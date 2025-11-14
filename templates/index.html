@@ -678,6 +678,103 @@
         .tab-content.active {
             display: block;
         }
+                /* Batch Results Styles */
+        .batch-results {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .batch-result-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--primary-blue);
+        }
+
+        .batch-result-item.error {
+            border-left-color: var(--error-color);
+            background: #fef2f2;
+        }
+
+        .batch-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-family: inherit;
+            resize: vertical;
+            transition: var(--transition);
+        }
+
+        textarea:focus {
+            border-color: var(--primary-blue);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(44, 123, 229, 0.2);
+        }
+
+        .mode-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .mode-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: var(--transition);
+            font-weight: 600;
+        }
+
+        .mode-tab.active {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .batch-loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .batch-loading-spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid var(--primary-blue);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Add these to your existing CSS */
     </style>
 </head>
 <body>
@@ -737,48 +834,26 @@
 
             <!-- Batch Lookup Tab -->
             <div class="tab-content" id="batch-tab">
-                <form method="POST" action="/" class="search-form" id="batch-form">
-                    <input type="hidden" name="mode" value="batch">
+                <div class="search-form" id="batch-form">
                     <div class="form-group">
                         <label for="batch_ips">Enter multiple IP addresses</label>
                         <textarea name="batch_ips" id="batch_ips" placeholder="One IP per line or comma-separated..."></textarea>
                     </div>
-                    <button type="submit">
+                    <button type="button" id="batchLookupBtn">
                         <i class="fas fa-layer-group"></i> Lookup Multiple IPs
                     </button>
-                </form>
+                </div>
+
+                <!-- Batch Loading -->
+                <div class="batch-loading" id="batch-loading">
+                    <div class="batch-loading-spinner"></div>
+                    <p>Looking up IP addresses...</p>
+                </div>
 
                 <!-- Batch Results Section -->
-                {% if batch_results %}
-                <div class="batch-results" style="margin-top: 20px;">
-                    <h3><i class="fas fa-list"></i> Batch Results ({{ batch_results|length }} IPs)</h3>
-                    
-                    {% for result in batch_results %}
-                    <div class="batch-result-item {% if result.result.error %}error{% endif %}">
-                        <strong>IP:</strong> {{ result.ip }}<br>
-                        {% if result.result.error %}
-                            <span style="color: var(--error-color);"><strong>Error:</strong> {{ result.result.error }}</span>
-                        {% else %}
-                            <strong>Country:</strong> {{ result.result.country_name }}<br>
-                            <strong>Region:</strong> {{ result.result.state_prov }}<br>
-                            <strong>City:</strong> {{ result.result.city }}<br>
-                            <strong>ISP:</strong> {{ result.result.isp }}<br>
-                            <strong>Coordinates:</strong> {{ result.result.latitude }}, {{ result.result.longitude }}
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-
-                    <!-- CSV Download Button -->
-                    <div class="batch-actions">
-                        <button type="button" id="downloadCSVBtn" onclick="downloadBatchCSV()" style="background: var(--success-color);">
-                            <i class="fas fa-file-csv"></i> Download CSV
-                        </button>
-                        <button type="button" onclick="clearBatchResults()" style="background: var(--error-color);">
-                            <i class="fas fa-trash"></i> Clear Results
-                        </button>
-                    </div>
+                <div class="batch-results" id="batch-results" style="display: none;">
+                    <!-- Results will be populated here by JavaScript -->
                 </div>
-                {% endif %}
             </div>
         </div>
 
@@ -910,27 +985,83 @@
         }).addTo(map);
         {% endif %}
 
-        // CSV Download Function
-        function downloadBatchCSV() {
-            const results = [
-                {% if batch_results %}
-                    {% for result in batch_results %}
-                    {
-                        ip: "{{ result.ip }}",
-                        data: {
-                            country_name: "{{ result.result.country_name|default('') }}",
-                            state_prov: "{{ result.result.state_prov|default('') }}",
-                            city: "{{ result.result.city|default('') }}",
-                            isp: "{{ result.result.isp|default('') }}",
-                            organization: "{{ result.result.organization|default('') }}",
-                            latitude: "{{ result.result.latitude|default('') }}",
-                            longitude: "{{ result.result.longitude|default('') }}"
-                        }
-                    },
-                    {% endfor %}
-                {% endif %}
-            ];
+        // Batch Lookup Functionality
+        document.getElementById('batchLookupBtn').addEventListener('click', async function() {
+            const rawInput = document.getElementById('batch_ips').value.trim();
+            const batchResults = document.getElementById('batch-results');
+            const batchLoading = document.getElementById('batch-loading');
 
+            if (rawInput === '') {
+                batchResults.innerHTML = '<div class="error-message">Please enter at least one IP address.</div>';
+                batchResults.style.display = 'block';
+                return;
+            }
+
+            // Split by new lines or commas
+            const ips = rawInput
+                .split(/[\n,]+/)
+                .map(ip => ip.trim())
+                .filter(ip => ip.length > 0);
+
+            // Show loading
+            batchLoading.style.display = 'block';
+            batchResults.style.display = 'none';
+
+            // Call the backend API for each IP
+            const results = [];
+
+            for (let ip of ips) {
+                try {
+                    const response = await fetch(`/api/lookup?ip=${encodeURIComponent(ip)}`);
+                    const data = await response.json();
+                    results.push({ ip, data });
+                } catch (err) {
+                    results.push({ ip, data: { error: "Lookup failed - " + err.message } });
+                }
+            }
+
+            // Hide loading
+            batchLoading.style.display = 'none';
+
+            // Display results
+            let html = `<h3><i class="fas fa-list"></i> Batch Results (${results.length} IPs)</h3>`;
+            
+            for (let item of results) {
+                html += `
+                    <div class="batch-result-item ${item.data.error ? 'error' : ''}">
+                        <strong>IP:</strong> ${item.ip}<br>
+                        ${item.data.error 
+                            ? `<span style="color: var(--error-color);"><strong>Error:</strong> ${item.data.error}</span>`
+                            : `
+                                <strong>Country:</strong> ${item.data.country_name || 'N/A'}<br>
+                                <strong>Region:</strong> ${item.data.state_prov || 'N/A'}<br>
+                                <strong>City:</strong> ${item.data.city || 'N/A'}<br>
+                                <strong>ISP:</strong> ${item.data.isp || 'N/A'}<br>
+                                <strong>Coordinates:</strong> ${item.data.latitude || 'N/A'}, ${item.data.longitude || 'N/A'}
+                            `
+                        }
+                    </div>
+                `;
+            }
+
+            // Add download buttons
+            html += `
+                <div class="batch-actions">
+                    <button type="button" id="downloadCSVBtn" onclick="downloadBatchCSV(${JSON.stringify(results).replace(/"/g, '&quot;')})" style="background: var(--success-color);">
+                        <i class="fas fa-file-csv"></i> Download CSV
+                    </button>
+                    <button type="button" onclick="clearBatchResults()" style="background: var(--error-color);">
+                        <i class="fas fa-trash"></i> Clear Results
+                    </button>
+                </div>
+            `;
+
+            batchResults.innerHTML = html;
+            batchResults.style.display = 'block';
+        });
+
+        // CSV Download Function
+        function downloadBatchCSV(results) {
             fetch('/download-csv', {
                 method: 'POST',
                 headers: {
@@ -957,11 +1088,13 @@
                 console.error('Error downloading CSV:', error);
                 alert('Error downloading CSV file');
             });
-        
         }
+
         function clearBatchResults() {
             if (confirm('Are you sure you want to clear the batch results?')) {
-                window.location.href = '/';
+                document.getElementById('batch-results').style.display = 'none';
+                document.getElementById('batch-results').innerHTML = '';
+                document.getElementById('batch_ips').value = '';
             }
         }
     </script>
